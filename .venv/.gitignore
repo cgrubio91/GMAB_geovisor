@@ -1,0 +1,18 @@
+# Ignorar carpetas de archivos subidos por el usuario
+backend/uploads/
+backend/Datos/
+../Datos/
+
+# Ignorar archivos específicos de KMZ si llegas a poner alguno suelto
+*.kmz
+*.kml
+
+# Ignorar entorno virtual y configuraciones locales
+.venv/
+.env
+__pycache__/
+
+# Ignorar archivos de configuración de entorno (credenciales)
+.env
+.env.local
+.env.*
