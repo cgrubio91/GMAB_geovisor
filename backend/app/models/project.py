@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base_class import Base
@@ -12,8 +12,13 @@ class Project(Base):
     start_date = Column(DateTime, default=datetime.utcnow)
     stage = Column(String, default="Planificación") # Ej: Planificación, Ejecución, Finalizado
     created_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String, default="active")
+    status = Column(String, default="active", index=True)
     
     layers = relationship("Layer", back_populates="project", cascade="all, delete-orphan")
     measurements = relationship("Measurement", back_populates="project", cascade="all, delete-orphan")
     users = relationship("User", secondary=user_project_association, back_populates="projects")
+
+    # Índices compuestos para queries frecuentes
+    __table_args__ = (
+        Index('idx_project_status_created', 'status', 'created_at'),
+    )

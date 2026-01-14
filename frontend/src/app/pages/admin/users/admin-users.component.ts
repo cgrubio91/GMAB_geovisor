@@ -1,48 +1,49 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { ProjectService } from '../../../services/project.service';
+import { ToastService } from '../../../services/toast.service';
 
 @Component({
   selector: 'app-admin-users',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="users-container">
-      <div class="list-header">
-        <h2>Gestión de Usuarios</h2>
+    <div class="admin-container">
+      <div class="admin-header">
+        <h2>👥 Gestión de Usuarios</h2>
         <button class="btn btn-primary" (click)="showCreate = true" *ngIf="!showCreate">
           + Nuevo Usuario
         </button>
       </div>
 
       <!-- Create/Edit Form -->
-      <div class="card form-panel" *ngIf="showCreate">
+      <div class="card form-section" *ngIf="showCreate">
         <h3>{{ newUser.id ? 'Editar Usuario' : 'Crear Nuevo Usuario' }}</h3>
         <form (submit)="saveUser()">
-          <div class="form-grid">
+          <div class="form-row">
             <div class="form-group">
-              <label>Nombre</label>
-              <input type="text" [(ngModel)]="newUser.full_name" name="name" placeholder="Nombre completo" class="form-control">
+              <label>Nombre Completo</label>
+              <input type="text" [(ngModel)]="newUser.full_name" name="name" placeholder="Juan Pérez" class="form-control" required>
             </div>
             <div class="form-group">
               <label>Código de Acceso</label>
-              <input type="text" [(ngModel)]="newUser.access_code" name="code" placeholder="USER001" class="form-control">
+              <input type="text" [(ngModel)]="newUser.access_code" name="code" placeholder="USER001" class="form-control" required>
             </div>
           </div>
           
-          <div class="form-grid">
+          <div class="form-row">
             <div class="form-group">
               <label>Rol</label>
-              <div class="radio-group horizontal">
+              <div class="radio-inline">
                 <label><input type="radio" [(ngModel)]="newUser.role" name="role" value="User"> Usuario</label>
                 <label><input type="radio" [(ngModel)]="newUser.role" name="role" value="Admin"> Administrador</label>
               </div>
             </div>
             <div class="form-group" *ngIf="newUser.id">
               <label>Estado</label>
-              <div class="radio-group horizontal">
+              <div class="radio-inline">
                 <label><input type="radio" [(ngModel)]="newUser.is_active" name="active" [value]="true"> Activo</label>
                 <label><input type="radio" [(ngModel)]="newUser.is_active" name="active" [value]="false"> Inactivo</label>
               </div>
@@ -51,157 +52,309 @@ import { ProjectService } from '../../../services/project.service';
 
           <div class="form-group">
             <label>Proyectos Asignados</label>
-            <div class="checkbox-list">
-              <label *ngFor="let p of availableProjects">
-                <input type="checkbox" [checked]="selectedProjectIds.has(p.id)" (change)="toggleProject(p.id)"> {{ p.name }}
+            <div class="checkbox-grid">
+              <label *ngFor="let p of availableProjects" class="checkbox-item">
+                <input type="checkbox" [checked]="selectedProjectIds.has(p.id)" (change)="toggleProject(p.id)"> 
+                {{ p.name }}
               </label>
             </div>
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary">{{ newUser.id ? 'Guardar Cambios' : 'Crear' }}</button>
+            <button type="submit" class="btn btn-success">{{ newUser.id ? '💾 Guardar Cambios' : '✨ Crear Usuario' }}</button>
             <button type="button" class="btn btn-outline" (click)="resetForm()">Cancelar</button>
           </div>
         </form>
       </div>
 
-      <!-- User List -->
-      <div class="user-list" *ngIf="!showCreate">
-        <div *ngFor="let user of users" class="card user-card">
-          <div class="user-main">
-            <div class="user-avatar">👤</div>
-            <div class="user-info">
-              <h4>{{ user.full_name }}</h4>
-              <p>Código: {{ user.access_code }}</p>
-              <span class="meta">Rol: {{ user.role }} • Proyectos: {{ user.projects_count }}</span>
-            </div>
-          </div>
-          <div class="user-actions">
-            <button class="btn-text edit" (click)="editUser(user)">✏️ Editar</button>
-            <button class="btn-text delete" (click)="deleteUser(user.id)">🚫 Desactivar</button>
-          </div>
+      <!-- Users Table -->
+      <div class="table-section" *ngIf="!showCreate">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Código</th>
+                <th>Rol</th>
+                <th>Proyectos</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let user of users" [class.inactive-row]="!user.is_active">
+                <td class="cell-name"><strong>{{ user.full_name }}</strong></td>
+                <td><code class="code-badge">{{ user.access_code }}</code></td>
+                <td>
+                  <span [class]="'role-badge role-' + (user.role === 'Admin' ? 'admin' : 'user')">
+                    {{ user.role }}
+                  </span>
+                </td>
+                <td class="text-center">{{ user.projects_count }}</td>
+                <td>
+                  <span [class]="'status-badge ' + (user.is_active ? 'status-active' : 'status-inactive')">
+                    {{ user.is_active ? '🟢 Activo' : '🔴 Inactivo' }}
+                  </span>
+                </td>
+                <td class="cell-actions">
+                  <button class="btn btn-sm btn-outline" (click)="editUser(user)" title="Editar usuario">✏️</button>
+                  <button class="btn btn-sm" 
+                    [ngClass]="user.is_active ? 'btn-danger' : 'btn-success'"
+                    (click)="toggleUserStatus(user)"
+                    [title]="user.is_active ? 'Desactivar usuario' : 'Activar usuario'">
+                    {{ user.is_active ? '⏸️' : '▶️' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .list-header {
+    .admin-container {
+      padding: var(--spacing-lg);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .admin-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 25px;
+      margin-bottom: var(--spacing-2xl);
     }
-    .list-header h2 {
+
+    .admin-header h2 {
+      font-size: var(--font-size-2xl);
       color: var(--secondary);
-      font-size: 1.3rem;
+      margin: 0;
     }
-    .form-panel {
-      padding: 30px;
-      margin-bottom: 30px;
+
+    .form-section {
+      margin-bottom: var(--spacing-2xl);
     }
-    .form-panel h3 {
-      font-size: 1.1rem;
-      margin-bottom: 20px;
+
+    .form-section h3 {
+      margin-top: 0;
+      margin-bottom: var(--spacing-lg);
       color: var(--secondary);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: var(--spacing-md);
     }
-    .form-grid {
+
+    .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
     }
+
     .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      font-size: 0.9rem;
-    }
-    .form-control {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid var(--gray-200);
-      border-radius: 8px;
-    }
-    .radio-group, .checkbox-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
     }
-    .radio-group label, .checkbox-list label {
-      font-weight: 400;
+
+    .form-group label {
+      font-weight: var(--font-weight-semibold);
+      color: var(--dark);
+      margin-bottom: var(--spacing-sm);
+      font-size: var(--font-size-sm);
+    }
+
+    .form-control {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border: var(--border-width) solid var(--border-color);
+      border-radius: var(--border-radius);
+      font-size: var(--font-size-base);
+      transition: all var(--transition-fast);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.1);
+    }
+
+    .radio-inline {
+      display: flex;
+      gap: var(--spacing-lg);
+    }
+
+    .radio-inline label {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: var(--spacing-sm);
+      margin: 0;
+      font-weight: var(--font-weight-normal);
     }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-sm);
+      transition: background-color var(--transition-fast);
+    }
+
+    .checkbox-item:hover {
+      background-color: var(--gray-100);
+    }
+
     .form-actions {
       display: flex;
-      gap: 10px;
-      margin-top: 10px;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+      padding-top: var(--spacing-lg);
+      border-top: var(--border-width) solid var(--border-color);
     }
-    .user-card {
-      padding: 15px 25px;
-      margin-bottom: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+
+    .table-section {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
     }
-    .user-main {
-      display: flex;
-      align-items: center;
-      gap: 20px;
+
+    .table-wrapper {
+      overflow-x: auto;
     }
-    .user-avatar {
-      width: 45px;
-      height: 45px;
-      background: #e1f5fe;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      color: var(--primary);
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    .user-info h4 {
-      margin: 0;
+
+    .data-table thead {
+      background-color: var(--gray-100);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .data-table th {
+      padding: var(--spacing-md) var(--spacing-lg);
+      text-align: left;
+      font-weight: var(--font-weight-semibold);
+      color: var(--secondary);
+      font-size: var(--font-size-sm);
+    }
+
+    .data-table td {
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--border-color);
+    }
+
+    .data-table tbody tr {
+      transition: background-color var(--transition-fast);
+    }
+
+    .data-table tbody tr:hover {
+      background-color: #fafafa;
+    }
+
+    .data-table tbody tr.inactive-row {
+      opacity: 0.6;
+      background-color: #f5f5f5;
+    }
+
+    .cell-name {
+      font-weight: var(--font-weight-semibold);
       color: var(--secondary);
     }
-    .user-info p {
-      margin: 2px 0;
+
+    .code-badge {
+      background-color: #f0f0f0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
       font-size: 0.85rem;
-      color: var(--gray-600);
+      color: #666;
     }
-    .user-info .meta {
-      font-size: 0.8rem;
-      color: var(--gray-600);
+
+    .role-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: var(--border-radius-full);
+      font-size: 0.75rem;
+      font-weight: var(--font-weight-semibold);
     }
-    .user-actions {
+
+    .role-admin {
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .role-user {
+      background-color: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: var(--font-weight-medium);
+    }
+
+    .status-active {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-inactive {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .cell-actions {
       display: flex;
-      gap: 15px;
+      gap: var(--spacing-sm);
     }
-    .btn-text {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .btn-text.edit {
-      color: var(--primary);
-    }
-    .btn-text.delete {
-      color: #f44336;
-    }
-    .radio-group.horizontal {
-      flex-direction: row;
-      gap: 20px;
+
+    @media (max-width: 768px) {
+      .admin-header {
+        flex-direction: column;
+        gap: var(--spacing-lg);
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .checkbox-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: var(--font-size-xs);
+      }
+
+      .btn {
+        padding: 6px 12px;
+        font-size: var(--font-size-xs);
+      }
     }
   `]
 })
-export class AdminUsersComponent {
+export class AdminUsersComponent implements OnInit {
   showCreate = false;
-  newUser: any = { full_name: '', access_code: '', role: 'User', project_ids: [] };
+  newUser: any = { full_name: '', access_code: '', role: 'User', project_ids: [], is_active: true };
   selectedProjectIds: Set<number> = new Set();
 
   availableProjects: any[] = [];
@@ -209,7 +362,8 @@ export class AdminUsersComponent {
 
   constructor(
     private adminService: AdminService,
-    private projectService: ProjectService
+    private projectService: ProjectService,
+    private toastService: ToastService
   ) { }
 
   ngOnInit() {
@@ -218,14 +372,24 @@ export class AdminUsersComponent {
   }
 
   loadUsers() {
-    this.adminService.getUsers().subscribe(data => {
-      this.users = data;
+    this.adminService.getUsers().subscribe({
+      next: (data) => {
+        this.users = data;
+      },
+      error: (error) => {
+        this.toastService.error('Error al cargar usuarios');
+      }
     });
   }
 
   loadProjects() {
-    this.projectService.getProjects().subscribe(data => {
-      this.availableProjects = data;
+    this.projectService.getProjects().subscribe({
+      next: (data) => {
+        this.availableProjects = data;
+      },
+      error: (error) => {
+        this.toastService.error('Error al cargar proyectos');
+      }
     });
   }
 
@@ -238,6 +402,11 @@ export class AdminUsersComponent {
   }
 
   saveUser() {
+    if (!this.newUser.full_name || !this.newUser.access_code) {
+      this.toastService.warning('Por favor completa todos los campos requeridos');
+      return;
+    }
+
     const payload = {
       full_name: this.newUser.full_name,
       access_code: this.newUser.access_code,
@@ -247,45 +416,59 @@ export class AdminUsersComponent {
     };
 
     if (this.newUser.id) {
-      this.adminService.updateUser(this.newUser.id, payload).subscribe(() => {
-        this.resetForm();
-        this.loadUsers();
+      this.adminService.updateUser(this.newUser.id, payload).subscribe({
+        next: () => {
+          this.toastService.success('Usuario actualizado correctamente');
+          this.resetForm();
+          this.loadUsers();
+        },
+        error: (error) => {
+          this.toastService.error(`Error: ${error.error?.detail || error.message}`);
+        }
       });
     } else {
-      this.adminService.createUser(payload).subscribe(() => {
-        this.resetForm();
-        this.loadUsers();
+      this.adminService.createUser(payload).subscribe({
+        next: () => {
+          this.toastService.success('Usuario creado correctamente');
+          this.resetForm();
+          this.loadUsers();
+        },
+        error: (error) => {
+          this.toastService.error(`Error: ${error.error?.detail || error.message}`);
+        }
       });
     }
   }
 
   editUser(user: any) {
-    this.newUser = { ...user, is_active: user.is_active };
+    this.newUser = { ...user };
     this.selectedProjectIds = new Set();
-    // We need to fetch the user details to get project IDs if they are not in the summary
-    // Since we don't have a direct get_user that includes projects in AdminService yet, 
-    // maybe we can rely on the fact that 'admin/users' endpoint already includes project count.
-    // However, for reassignment we need IDs.
-    // Let's assume we need to add get_user to AdminService or handle it via a filter.
-    // But wait, list_users in admin.py returns user.projects_count but not IDs.
-
-    // I will mock the IDs for now if they are not readily available, or better, 
-    // I should check if the summary can be improved.
-    // For now, I'll just set showCreate to true and let user re-assign if needed.
     this.showCreate = true;
+  }
+
+  toggleUserStatus(user: any) {
+    const newStatus = !user.is_active;
+    const accion = newStatus ? 'activar' : 'desactivar';
+    const mensaje = newStatus 
+      ? `¿Activar a ${user.full_name}? Podrá acceder nuevamente.`
+      : `¿Desactivar a ${user.full_name}? No podrá acceder al sistema.`;
+
+    if (confirm(mensaje)) {
+      this.adminService.updateUser(user.id, { is_active: newStatus }).subscribe({
+        next: () => {
+          this.toastService.success(`Usuario ${accion}do correctamente`);
+          this.loadUsers();
+        },
+        error: (error) => {
+          this.toastService.error(`Error al ${accion} usuario`);
+        }
+      });
+    }
   }
 
   resetForm() {
     this.showCreate = false;
     this.newUser = { full_name: '', access_code: '', role: 'User', project_ids: [], is_active: true };
     this.selectedProjectIds.clear();
-  }
-
-  deleteUser(id: number) {
-    if (confirm('¿Estás seguro de desactivar este usuario?')) {
-      this.adminService.updateUser(id, { is_active: false }).subscribe(() => {
-        this.loadUsers();
-      });
-    }
   }
 }

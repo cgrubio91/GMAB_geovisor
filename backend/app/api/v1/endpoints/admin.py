@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import List, Any, Optional
 
 from sqlalchemy.orm import Session
 from app.api.deps import get_db
+from app.api.auth_utils import get_current_user, require_admin
 from app import schemas
 from app.models.user import User
 from app.models.project import Project
@@ -52,7 +53,15 @@ def list_users(db: Session = Depends(get_db)) -> Any:
     return result
 
 @router.post("/users", response_model=schemas.User)
-def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)) -> Any:
+def create_user(
+    user_in: schemas.UserCreate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+) -> Any:
+    # Validar que es admin
+    current_user = get_current_user(authorization, db)
+    require_admin(current_user)
+    
     # Check if access code already exists
     user = crud_user.get_user_by_access_code(db, access_code=user_in.access_code)
     if user:
@@ -64,8 +73,13 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)) -> A
 def update_user(
     user_id: int,
     user_in: schemas.UserUpdate,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> Any:
+    # Validar que es admin
+    current_user = get_current_user(authorization, db)
+    require_admin(current_user)
+    
     user = crud_user.get_user(db, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -75,8 +89,12 @@ def update_user(
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: int,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> Any:
+    # Validar que es admin
+    current_user = get_current_user(authorization, db)
+    require_admin(current_user)
     # Check if user exists
     user = crud_user.get_user(db, user_id=user_id)
     if not user:
@@ -94,6 +112,9 @@ def list_projects_summary(db: Session = Depends(get_db)) -> Any:
         result.append({
             "id": p.id,
             "name": p.name,
+            "location": p.location,
+            "status": p.status if hasattr(p, 'status') else "active",
+            "stage": p.stage if hasattr(p, 'stage') else "Planificación",
             "users_count": len(p.users),
             "layers_count": len(p.layers)
         })

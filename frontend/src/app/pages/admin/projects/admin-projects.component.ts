@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../services/admin.service';
 import { ProjectService } from '../../../services/project.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-admin-projects',
@@ -69,127 +70,316 @@ import { ProjectService } from '../../../services/project.service';
         </form>
       </div>
 
-      <!-- Projects List -->
-      <div class="items-list" *ngIf="!showCreate">
-        <div *ngFor="let p of projects" class="card item-card">
-          <div class="item-main">
-            <div class="item-icon">📁</div>
-            <div class="item-info">
-              <h4>{{ p.name }}</h4>
-              <span class="meta">{{ p.users_count }} usuarios asignados • {{ p.layers_count }} capas</span>
-            </div>
-          </div>
-          <div class="item-actions">
-            <button class="btn-text edit" (click)="editProject(p)">✏️ Editar</button>
-            <button class="btn-text delete" (click)="deleteProject(p)">🚫 Desactivar</button>
-          </div>
+      <!-- Projects List - Table View -->
+      <div class="table-section" *ngIf="!showCreate">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Proyecto</th>
+                <th>Ubicación</th>
+                <th>Usuarios</th>
+                <th>Capas</th>
+                <th>Etapa</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of projects" [class.inactive-row]="p.status === 'inactive'">
+                <td class="cell-name"><strong>{{ p.name }}</strong></td>
+                <td>{{ p.location || '-' }}</td>
+                <td class="text-center">{{ p.users_count }}</td>
+                <td class="text-center">{{ p.layers_count }}</td>
+                <td>
+                  <span class="stage-badge">{{ p.stage }}</span>
+                </td>
+                <td>
+                  <span [class]="'status-badge ' + (p.status === 'active' ? 'status-active' : 'status-inactive')">
+                    {{ p.status === 'active' ? '🟢 Activo' : '🔴 Inactivo' }}
+                  </span>
+                </td>
+                <td class="cell-actions">
+                  <button class="btn btn-sm btn-outline" (click)="editProject(p)" title="Editar proyecto">✏️</button>
+                  <button class="btn btn-sm" 
+                    [ngClass]="p.status === 'active' ? 'btn-warning' : 'btn-success'"
+                    (click)="toggleProjectStatus(p)"
+                    *ngIf="isAdmin"
+                    [title]="p.status === 'active' ? 'Desactivar proyecto' : 'Activar proyecto'">
+                    {{ p.status === 'active' ? '⏸️' : '▶️' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   `,
   styles: [`
+    .projects-container {
+      padding: var(--spacing-lg);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
     .list-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 25px;
+      margin-bottom: var(--spacing-2xl);
     }
+
     .list-header h2 {
+      font-size: var(--font-size-2xl);
       color: var(--secondary);
-      font-size: 1.3rem;
-    }
-    .form-panel {
-      padding: 30px;
-      margin-bottom: 30px;
-    }
-    .form-panel h3 {
-      font-size: 1.1rem;
-      margin-bottom: 20px;
-      color: var(--secondary);
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      font-size: 0.9rem;
-    }
-    .form-control {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid var(--gray-200);
-      border-radius: 8px;
-    }
-    .checkbox-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .checkbox-list label {
-      font-weight: 400;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .form-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .item-card {
-      padding: 15px 25px;
-      margin-bottom: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .item-main {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    .item-icon {
-      width: 45px;
-      height: 45px;
-      background: #e0f2f1;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      color: var(--primary);
-    }
-    .item-info h4 {
       margin: 0;
+    }
+
+    .card {
+      background-color: white;
+      border: var(--border-width) solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: var(--spacing-lg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-panel {
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .form-panel h3 {
+      margin-top: 0;
+      margin-bottom: var(--spacing-lg);
       color: var(--secondary);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: var(--spacing-md);
     }
-    .item-info .meta {
-      font-size: 0.85rem;
-      color: var(--gray-600);
-    }
-    .item-actions {
-      display: flex;
-      gap: 15px;
-    }
-    .btn-text {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .btn-text.edit {
-      color: var(--primary);
-    }
-    .btn-text.delete {
-      color: #f44336;
-    }
+
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-weight: var(--font-weight-semibold);
+      color: var(--dark);
+      margin-bottom: var(--spacing-sm);
+      font-size: var(--font-size-sm);
+    }
+
+    .form-control {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border: var(--border-width) solid var(--border-color);
+      border-radius: var(--border-radius);
+      font-size: var(--font-size-base);
+      transition: all var(--transition-fast);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.1);
+    }
+
+    .checkbox-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .checkbox-list label {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-sm);
+      transition: background-color var(--transition-fast);
+      font-weight: var(--font-weight-normal);
+    }
+
+    .checkbox-list label:hover {
+      background-color: var(--gray-100);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+      padding-top: var(--spacing-lg);
+      border-top: var(--border-width) solid var(--border-color);
+    }
+
+    .btn {
+      padding: var(--spacing-sm) var(--spacing-md);
+      font-weight: var(--font-weight-semibold);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+      border: 2px solid var(--primary);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-dark);
+      border-color: var(--primary-dark);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-outline {
+      background-color: white;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+    }
+
+    .btn-outline:hover {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-success {
+      background-color: var(--success);
+      color: white;
+      border: 2px solid var(--success);
+    }
+
+    .btn-success:hover {
+      background-color: #45a049;
+      border-color: #45a049;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-warning {
+      background-color: var(--warning);
+      color: white;
+      border: 2px solid var(--warning);
+    }
+
+    .btn-warning:hover {
+      background-color: #e68900;
+      border-color: #e68900;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: var(--font-size-sm);
+    }
+
+    .table-section {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table thead {
+      background-color: var(--gray-100);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .data-table th {
+      padding: var(--spacing-md) var(--spacing-lg);
+      text-align: left;
+      font-weight: var(--font-weight-semibold);
+      color: var(--secondary);
+      font-size: var(--font-size-sm);
+    }
+
+    .data-table td {
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--border-color);
+    }
+
+    .data-table tbody tr:hover {
+      background-color: #fafafa;
+    }
+
+    .data-table tbody tr.inactive-row {
+      opacity: 0.6;
+      background-color: #f5f5f5;
+    }
+
+    .cell-name {
+      font-weight: var(--font-weight-semibold);
+      color: var(--secondary);
+    }
+
+    .stage-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: var(--border-radius-full);
+      font-size: 0.75rem;
+      font-weight: var(--font-weight-semibold);
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: var(--font-weight-medium);
+    }
+
+    .status-active {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-inactive {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .cell-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+    }
+
+    @media (max-width: 768px) {
+      .list-header {
+        flex-direction: column;
+        gap: var(--spacing-lg);
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: var(--font-size-xs);
+      }
     }
   `]
 })
@@ -200,15 +390,23 @@ export class AdminProjectsComponent {
 
   availableUsers: any[] = [];
   projects: any[] = [];
+  isAdmin: boolean = false;
 
   constructor(
     private projectService: ProjectService,
-    private adminService: AdminService
+    private adminService: AdminService,
+    private authService: AuthService
   ) { }
 
   ngOnInit() {
     this.loadProjects();
     this.loadUsers();
+    this.checkAdminStatus();
+  }
+
+  checkAdminStatus() {
+    const user = this.authService.getCurrentUserSync();
+    this.isAdmin = user ? user.is_admin : false;
   }
 
   loadProjects() {
@@ -267,11 +465,22 @@ export class AdminProjectsComponent {
     });
   }
 
-  deleteProject(p: any) {
-    if (confirm(`¿Estás seguro de desactivar el proyecto ${p.name}?`)) {
-      this.projectService.updateProject(p.id, { status: 'inactive' }).subscribe(() => {
-        this.loadProjects();
-      });
+  toggleProjectStatus(p: any) {
+    const accion = p.status === 'active' ? 'desactivar' : 'activar';
+    const mensaje = p.status === 'active' 
+      ? `¿Desactivar el proyecto "${p.name}"? Los usuarios no podrán acceder a él.`
+      : `¿Activar el proyecto "${p.name}"? Los usuarios podrán acceder nuevamente.`;
+    
+    if (confirm(mensaje)) {
+      this.projectService.toggleProjectStatus(p.id).subscribe(
+        () => {
+          this.loadProjects();
+          alert(`Proyecto ${accion}do correctamente`);
+        },
+        error => {
+          alert(`Error al ${accion} el proyecto: ${error.error?.detail || error.message}`);
+        }
+      );
     }
   }
 

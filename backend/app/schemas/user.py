@@ -1,15 +1,20 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
+
 class UserBase(BaseModel):
     full_name: str
     email: Optional[str] = None
     is_active: Optional[bool] = True
     is_admin: Optional[bool] = False
 
+
 class UserCreate(UserBase):
-    access_code: str
+    access_code: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = "user"
     project_ids: Optional[List[int]] = []
+
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -17,11 +22,14 @@ class UserUpdate(BaseModel):
     access_code: Optional[str] = None
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
+    role: Optional[str] = None
     project_ids: Optional[List[int]] = None
+
 
 class User(UserBase):
     id: int
-    access_code: str # Make sure access_code is visible in read schema if needed by admin
+    access_code: Optional[str] = None
+    role: Optional[str] = "user"
 
     class Config:
         from_attributes = True

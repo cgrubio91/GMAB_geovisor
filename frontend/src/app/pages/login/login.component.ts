@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -18,7 +19,7 @@ import { Router } from '@angular/router';
           <p>Ingresa tu código de acceso para continuar</p>
         </div>
         
-        <form (submit)="login()">
+        <form (submit)="login($event)">
           <div class="form-group">
             <label for="code">Código de Acceso</label>
             <input 
@@ -27,16 +28,17 @@ import { Router } from '@angular/router';
               [(ngModel)]="accessCode" 
               name="code" 
               placeholder="Ej: GEO-XXXX-XX"
-              class="form-control">
+              class="form-control"
+              [disabled]="isLoading">
           </div>
           
-          <button type="submit" class="btn btn-primary btn-block">
-            Ingresar
+          <button type="submit" class="btn btn-primary btn-block" [disabled]="isLoading">
+            {{ isLoading ? 'Autenticando...' : 'Ingresar' }}
           </button>
         </form>
         
         <div *ngIf="error" class="error-msg">
-          {{ error }}
+          ❌ {{ error }}
         </div>
       </div>
     </div>
@@ -86,28 +88,59 @@ import { Router } from '@angular/router';
       outline: none;
       border-color: var(--primary);
     }
+    .form-control:disabled {
+      background-color: var(--gray-100);
+      cursor: not-allowed;
+    }
     .btn-block {
       width: 100%;
       justify-content: center;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .error-msg {
       margin-top: 15px;
       color: #dc3545;
       font-size: 0.85rem;
+      padding: 10px;
+      background: rgba(220, 53, 69, 0.1);
+      border-radius: 4px;
     }
   `]
 })
 export class LoginComponent {
   accessCode = '';
   error = '';
+  isLoading = false;
 
-  constructor(private router: Router) { }
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) { }
 
-  login() {
-    if (this.accessCode.startsWith('GEO') || this.accessCode.startsWith('ADMIN')) {
-      this.router.navigate(['/dashboard']);
-    } else {
-      this.error = 'Código inválido. Usa un código válido como GEO-XXXX o ADMIN001.';
+  login(event: Event) {
+    event.preventDefault();
+
+    if (!this.accessCode.trim()) {
+      this.error = 'Ingresa un código de acceso válido';
+      return;
     }
+
+    this.isLoading = true;
+    this.error = '';
+
+    this.authService.login(this.accessCode).subscribe({
+      next: (response) => {
+        this.isLoading = false;
+        this.router.navigate(['/dashboard']);
+      },
+      error: (error) => {
+        this.isLoading = false;
+        this.error = error.error?.detail || 'Error al autenticar. Intenta nuevamente.';
+      }
+    });
   }
 }
+

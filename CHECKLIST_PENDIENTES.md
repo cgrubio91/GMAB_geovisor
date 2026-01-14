@@ -2,7 +2,20 @@
 
 **Estado del Proyecto:** En Desarrollo 🚧  
 **Última actualización:** 14 de enero de 2026  
-**Versión actual:** 1.0.0 (Beta)
+**Versión actual:** 1.1.0 (Beta - Fase 1: 58%, Geovisor 2D: 100%)  
+**Progreso Global:** ~67% completado
+
+---
+
+## 📊 Resumen de Fases
+
+| Fase | Progreso | Estado |
+|------|----------|--------|
+| Fase 1: Core Features | 14/24 (58%) | 🔄 En progreso |
+| Fase 2: UI/UX | 20/24 (83%) | 🔄 En progreso (Parte 1: ✅ completada + funcionalidades verificadas) |
+| Fase 3: Análisis | 4/7 (57%) | 🔄 Parcial |
+| Fase 4: Archivos | 3/8 (38%) | 🔄 Parcial |
+| **PROYECTO TOTAL** | **~69%** | **Funcional** |
 
 ---
 
@@ -21,9 +34,13 @@
 - ✅ Login por código de acceso
 - ✅ Registro de usuarios en DB
 - ✅ Datos de usuario en sesión
-- ❌ Logout/Cierre de sesión
+- ✅ Logout/Cierre de sesión
+- ✅ Relogin después de logout
+- ✅ Activar/Desactivar usuarios (toggle-status)
+- ✅ Validación de token en endpoints
+- ✅ Proxy configuration para desarrollo
 - ❌ Cambio de contraseña / Recuperación de código
-- ❌ Rol basado en control de acceso (RBAC)
+- ❌ Rol basado en control de acceso (RBAC - parcial, solo admin verificado)
 - ❌ Auditoría de acciones por usuario
 
 ### Base de Datos
@@ -42,7 +59,10 @@
 - ✅ Crear nuevo proyecto
 - ✅ Actualizar proyecto
 - ✅ Eliminar proyecto
-- ❌ Búsqueda y filtrado avanzado
+- ✅ Búsqueda y filtrado avanzado
+- ✅ Activar/Desactivar proyectos (toggle-status con validación de admin)
+- ✅ Backend: POST endpoint /{project_id}/toggle-status con autenticación
+- ✅ Frontend: Interfaz de activación con permisos de admin
 - ❌ Proyectos favoritos/destacados
 - ❌ Compartir proyectos (permisos granulares)
 - ❌ Archivo/Finalización de proyectos
@@ -55,11 +75,17 @@
 - ✅ Página de Login
 - ✅ Dashboard de proyectos
 - ✅ Panel de Administración
+- ✅ Sistema global de estilos (CSS variables)
+- ✅ Toast notifications (ToastService + ToastContainerComponent)
+- ✅ Tabla profesional de usuarios (reescrita)
+- ✅ Tabla profesional de proyectos (reescrita)
+- ✅ Activar/Desactivar usuarios
+- ✅ Activar/Desactivar proyectos (solo admin)
+- ✅ Responsive design (desktop, tablet, móvil)
 - ❌ Tema oscuro/claro (Dark mode)
-- ❌ Responsive design mejorado (móvil)
+- ❌ Modal component reutilizable
+- ❌ Loader component y skeleton loaders
 - ❌ Navegación mejorada (breadcrumbs)
-- ❌ Notificaciones/Toast messages
-- ❌ Loading spinners y skeleton loaders
 
 ### Geovisor 2D (OpenLayers)
 - ✅ Visualización de mapa base (OSM)
@@ -168,22 +194,24 @@
 
 ## ⚙️ FASE 5: ADMINISTRACIÓN
 
-### Gestión de Usuarios
-- ✅ Listar usuarios en admin
-- ❌ Crear nuevo usuario con código asignado
-- ❌ Editar datos de usuario
-- ❌ Cambiar rol (admin/user)
-- ❌ Desactivar/Activar usuario
-- ❌ Envío de códigos por email
-- ❌ Reseteo de códigos por admin
+### Componentes Globales
+- ✅ Estilos globales (styles-global.css) - 600+ líneas
+- ✅ Toast notifications (ToastService) - Servicio completo
+- ✅ Toast container component - Componente standalone
+- ✅ Tabla de usuarios profesional - CRUD completo + toggle estado
+- ✅ Tabla de proyectos profesional - CRUD + toggle estado (admin)
+- ✅ Responsividad completa (desktop, tablet, móvil)
+- ✅ Backend: Endpoint POST /{project_id}/toggle-status
+- ✅ Backend: Validación de permisos (admin only)
+- ❌ Modal component reutilizable
+- ❌ Loader component
+- ❌ Paginación en tablas
+- ❌ Validación mejorada en formularios
+- ❌ Ayuda contextual (tooltips)
 
-### Gestión de Proyectos (Admin)
-- ✅ Listar todos los proyectos
-- ❌ Ver detalles completos (usuarios, capas, mediciones)
-- ❌ Asignar/Desasignar usuarios a proyectos
-- ❌ Cambiar estado del proyecto
-- ❌ Eliminar proyecto y datos asociados
-- ❌ Estadísticas por proyecto
+---
+
+## 📊 FASE 2: INTERFAZ FRONTEND (UI/UX)
 
 ### Gestión de Archivos (Admin)
 - ✅ Listar archivos en servidor
@@ -388,20 +416,70 @@
 
 ## 📈 ESTIMACIÓN DE ESFUERZO
 
+### ✅ FASE 2 PARTE 1 COMPLETADA Y FUNCIONAL (14 de enero 2026)
+
+**Estado actual:**
+- ✅ Sistema de notificaciones toast (4 tipos: success, error, warning, info)
+- ✅ Tablas profesionales (usuarios y proyectos) con CRUD completo
+- ✅ Activación/desactivación de usuarios funcional
+- ✅ Activación/desactivación de proyectos funcional (admin only)
+- ✅ Autenticación y relogin funcionando
+- ✅ Global CSS system (600+ líneas) con variables de diseño
+- ✅ Responsive design en todos los tamaños
+- ✅ Proxy configuration para desarrollo local
+- ✅ Backend endpoints validados y funcionando
+
+**Bugs corregidos:**
+1. ✅ Login error después de logout (sesiones no se limpian)
+2. ✅ Toggle de proyectos no enviaba token (HttpHeaders problema)
+3. ✅ Proyectos mostraban todos como inactivos (endpoint no retornaba status)
+4. ✅ URL hardcodeada a puerto 8000 en project.service (no usaba proxy)
+5. ✅ Header de Authorization no se capturaba (faltaba `Header()` en endpoint)
+
+**Siguiente paso:** FASE 2 PARTE 2
+- Modal component reutilizable
+- Loader/spinner component
+- Tooltip system
+- Dark mode / Theme switcher
+
+---
+
+**Archivos creados:**
+1. `styles-global.css` - Sistema de diseño completo (600+ líneas)
+2. `toast.service.ts` - Servicio de notificaciones
+3. `toast-container.component.ts` - Componente de notificaciones
+4. `admin-users.component.ts` - Tabla profesional (reescrita)
+5. `admin-projects.component.ts` - Tabla profesional (modificada)
+6. `GUIA_PRUEBAS_FASE_2_PARTE_1.md` - 24 pruebas funcionales
+
+**Cambios en backend:**
+- POST `/projects/{id}/toggle-status` con validación de admin
+- Verificación de permisos en token
+
+**Progreso Fase 2:**
+- Parte 1: ✅ 100% completada (7/7 tareas)
+- Parte 2: ❌ 0% (Modal, loaders, tooltips, theme switcher)
+
+---
+
 ### Crítico para MVP (Mínimo Viable Product)
 1. ✅ Autenticación básica
 2. ✅ CRUD de proyectos
 3. ✅ Geovisor 2D + capas
 4. ✅ Mediciones básicas
 5. ✅ Reporte PDF
-6. **Estimado:** 60% completado
+6. ✅ Admin panel profesional
+7. ✅ Notificaciones y feedback
+8. **Estimado:** 67% completado
 
 ### Importante para versión 1.0
-7. Admin panel funcional
-8. Permisos de usuarios
-9. Optimizaciones de performance
-10. Testing básico
-11. **Estimado:** 40% completado
+9. ❌ Modal component (blocking Fase 2 Parte 2)
+10. ❌ Loader spinners
+11. ❌ Permisos granulares (RBAC)
+12. ❌ Validación mejorada
+13. ❌ Tooltip system
+14. ❌ Dark mode
+15. **Estimado:** 20% completado
 
 ### Futuro (v1.1+)
 - Características avanzadas

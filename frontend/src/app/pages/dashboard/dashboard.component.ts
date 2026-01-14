@@ -1,12 +1,14 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <header class="main-header">
       <div class="header-content container">
@@ -33,6 +35,38 @@ import { ProjectService } from '../../services/project.service';
         <div class="section-header">
           <h2>Mis Proyectos</h2>
           <p>Selecciona un proyecto para acceder al geovisor</p>
+        </div>
+
+        <!-- Controles de búsqueda y filtrado -->
+        <div class="search-filters-container">
+          <div class="search-box">
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar proyectos..." 
+              [(ngModel)]="searchTerm"
+              (keyup)="searchProjects()"
+              class="search-input">
+          </div>
+          
+          <div class="filter-controls">
+            <select [(ngModel)]="selectedStatus" (change)="filterProjects()" class="filter-select">
+              <option value="">Todos los estados</option>
+              <option value="Activo">Activo</option>
+              <option value="Completado">Completado</option>
+              <option value="En pausa">En pausa</option>
+            </select>
+            
+            <select [(ngModel)]="sortBy" (change)="sortProjects()" class="filter-select">
+              <option value="created_at">Más reciente</option>
+              <option value="name">Nombre (A-Z)</option>
+              <option value="updated_at">Actualizado</option>
+            </select>
+            
+            <button class="btn btn-outline btn-sm" (click)="resetFilters()" 
+              *ngIf="searchTerm || selectedStatus">
+              ✕ Limpiar filtros
+            </button>
+          </div>
         </div>
 
         <div class="projects-grid">
@@ -67,6 +101,10 @@ import { ProjectService } from '../../services/project.service';
               </button>
             </div>
           </div>
+        </div>
+
+        <div *ngIf="projects.length === 0" class="empty-state">
+          <p>No se encontraron proyectos</p>
         </div>
       </section>
     </main>
@@ -111,6 +149,53 @@ import { ProjectService } from '../../services/project.service';
     .btn-sm {
       padding: 6px 15px;
       font-size: 0.9rem;
+    }
+    .search-filters-container {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .filter-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .filter-select {
+      padding: 10px 12px;
+      border: 2px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      background: white;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--gray-600);
+      font-size: 1.1rem;
     }
     .section-header {
       margin-bottom: 30px;
@@ -226,10 +311,15 @@ import { ProjectService } from '../../services/project.service';
 })
 export class DashboardComponent {
   projects: any[] = [];
+  allProjects: any[] = [];
+  searchTerm: string = '';
+  selectedStatus: string = '';
+  sortBy: string = 'created_at';
 
   constructor(
     private router: Router,
-    private projectService: ProjectService
+    private projectService: ProjectService,
+    private authService: AuthService
   ) { }
 
   ngOnInit() {
@@ -238,20 +328,7 @@ export class DashboardComponent {
 
   loadProjects() {
     this.projectService.getProjects().subscribe(data => {
-      // Map backend data to UI format if needed
-      // Backend returns: name, desc, created_at, layers, measurements, users
-      this.projects = data.map(p => ({
-        id: p.id,
-        name: p.name,
-        description: p.description || p.desc,
-        date: new Date(p.created_at || Date.now()).toLocaleDateString(),
-        people: p.users ? p.users.length : 0,
-        status: 'Activo', // Default status
-        layers: p.layers ? p.layers.map((l: any) => ({
-          name: l.name,
-          color: this.getRandomColor()
-        })) : []
-      }));
+      this.projects = this.mapProjects(data);
     });
   }
 
@@ -265,6 +342,77 @@ export class DashboardComponent {
   }
 
   logout() {
-    this.router.navigate(['/login']);
+    if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+      this.authService.logout().subscribe();
+    }
+  }
+
+  /**
+   * Búsqueda de proyectos
+   */
+  searchProjects() {
+    this.projectService.getProjects({
+      search: this.searchTerm,
+      status: this.selectedStatus,
+      sort_by: this.sortBy
+    }).subscribe(data => {
+      this.projects = this.mapProjects(data);
+    });
+  }
+
+  /**
+   * Filtrar por estado
+   */
+  filterProjects() {
+    this.projectService.getProjects({
+      search: this.searchTerm,
+      status: this.selectedStatus,
+      sort_by: this.sortBy
+    }).subscribe(data => {
+      this.projects = this.mapProjects(data);
+    });
+  }
+
+  /**
+   * Cambiar ordenamiento
+   */
+  sortProjects() {
+    this.projectService.getProjects({
+      search: this.searchTerm,
+      status: this.selectedStatus,
+      sort_by: this.sortBy
+    }).subscribe(data => {
+      this.projects = this.mapProjects(data);
+    });
+  }
+
+  /**
+   * Resetear filtros
+   */
+  resetFilters() {
+    this.searchTerm = '';
+    this.selectedStatus = '';
+    this.sortBy = 'created_at';
+    this.loadProjects();
+  }
+
+  /**
+   * Mapear datos del backend a formato UI
+   */
+  private mapProjects(data: any[]) {
+    return data.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description || p.desc,
+      date: new Date(p.created_at || Date.now()).toLocaleDateString(),
+      people: p.users ? p.users.length : 0,
+      status: p.status || 'Activo',
+      layers: p.layers ? p.layers.map((l: any) => ({
+        name: l.name,
+        color: this.getRandomColor()
+      })) : []
+    }));
   }
 }
+
+

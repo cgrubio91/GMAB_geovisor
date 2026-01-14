@@ -19,14 +19,21 @@ def create_user(db: Session, user: UserCreate):
     from app.models.project import Project
     obj_in = user.model_dump()
     project_ids = obj_in.pop("project_ids", [])
-    
+    from app.core.security import get_password_hash
+
     db_user = User(
         email=obj_in.get("email"),
         full_name=obj_in.get("full_name"),
         access_code=obj_in.get("access_code"),
         is_active=obj_in.get("is_active", True),
-        is_admin=obj_in.get("is_admin", False)
+        is_admin=obj_in.get("is_admin", False),
+        role=obj_in.get("role", "user")
     )
+
+    # Set password if provided
+    password = obj_in.get("password")
+    if password:
+        db_user.password_hash = get_password_hash(password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
