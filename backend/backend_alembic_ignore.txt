@@ -1,0 +1,2 @@
+This folder holds Alembic env files created by the assistant.
+Use the alembic.ini at the backend root: `backend/alembic.ini` and the scripts under `backend/alembic/`.

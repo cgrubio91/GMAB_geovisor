@@ -33,6 +33,36 @@ Si tienes Docker, puedes iniciar la base de datos con:
 docker-compose up -d
 ```
 
+**IMPORTANTE (migraciones y cambios en esquema)**
+
+En esta versión se añadieron campos nuevos al modelo `User` (`password_hash`, `role`, `reset_code`, `reset_code_expires`). Estos cambios requieren que la base de datos del entorno donde vayas a ejecutar la aplicación también tenga esas columnas.
+
+Tienes dos formas seguras de aplicar el cambio en la base de datos de otros equipos:
+
+- Opción A (recomendada — Alembic): aplicar la migración incluida en el repositorio:
+
+```bash
+# Desde la carpeta backend
+set PYTHONPATH=backend
+.venv\Scripts\python.exe -m alembic -c alembic.ini upgrade head
+```
+
+Esto aplica la migración registrada en `backend/alembic/versions/0001_add_user_columns.py` y deja el historial de migraciones en el repositorio.
+
+- Opción B (rápida, idempotente): ejecutar el script que añade las columnas si faltan:
+
+```bash
+set PYTHONPATH=backend
+.venv\Scripts\python.exe backend\app\db\ensure_user_columns.py
+```
+
+El script `ensure_user_columns.py` comprobará las columnas antes de hacer `ALTER TABLE` y solo añadirá las que falten.
+
+Notas:
+- Las migraciones (Alembic) son la forma recomendada para mantener coherencia entre entornos.
+- Si tu entorno de despliegue automatizado usa CI/CD, incorpora `alembic upgrade head` en el pipeline antes de reiniciar la app.
+- El repositorio contiene ambos: la migración en `backend/alembic/versions/` y el script de emergencia en `backend/app/db/`.
+
 ### Backend
 
 1. Entra a la carpeta `backend`.
