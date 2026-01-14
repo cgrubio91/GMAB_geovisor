@@ -16,3 +16,13 @@ __pycache__/
 .env
 .env.local
 .env.*
+
+# Archivos pesados
+backend/uploads/
+backend/Datos/
+*.kmz
+*.kml
+*.mpp
+
+# Node/Frontend
+frontend/node_modules/

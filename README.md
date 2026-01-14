@@ -61,7 +61,3 @@ docker-compose up -d
    npm start
    ```
 4. Accede a `http://localhost:4200`.
-
-## Créditos
-
-Desarrollado para la gestión de proyectos de ingeniería y análisis territorial.
