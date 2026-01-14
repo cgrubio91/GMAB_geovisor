@@ -58,6 +58,6 @@ docker-compose up -d
    ```
 3. Ejecuta el servidor de desarrollo:
    ```bash
-   npm start
+   ng serve
    ```
 4. Accede a `http://localhost:4200`.

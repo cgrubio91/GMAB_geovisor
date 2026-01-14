@@ -100,9 +100,61 @@
                   <span class="type">{{ layer.type }}</span>
                 </div>
               </div>
-              <button class="zoom-btn mini" (click)="zoomToLayer(layer); $event.stopPropagation()" title="Zoom">
-                🔍
-              </button>
+              <div class="layer-actions">
+                <button class="zoom-btn mini" (click)="zoomToLayer(layer); $event.stopPropagation()" title="Zoom a capa">
+                  🔍
+                </button>
+                <!-- Nuevo: Símbología -->
+                <button class="action-btn mini" (click)="openLayerSymbologyPanel(layer); $event.stopPropagation()" 
+                  title="Personalizar estilo" *ngIf="layer.format !== 'tiff' && layer.format !== 'geotiff' && layer.format !== 'tif'">
+                  🎨
+                </button>
+                <!-- Nuevo: Etiquetas -->
+                <button class="action-btn mini" [class.active]="layer.showLabels" 
+                  (click)="toggleLayerLabeling(layer); $event.stopPropagation()" 
+                  title="Mostrar etiquetas" *ngIf="layer.format !== 'tiff' && layer.format !== 'geotiff' && layer.format !== 'tif'">
+                  🏷️
+                </button>
+                <!-- Nuevo: Editar -->
+                <button class="action-btn mini" [class.active]="editingEnabled && selectedLayerForEdit?.id === layer.id" 
+                  (click)="toggleEditingMode(layer); $event.stopPropagation()" 
+                  title="Editar geometrías" *ngIf="layer.format !== 'tiff' && layer.format !== 'geotiff' && layer.format !== 'tif'">
+                  ✏️
+                </button>
+                <!-- Nuevo: Exportar -->
+                <button class="action-btn mini" (click)="$event.stopPropagation(); showExportMenu($event, layer)" 
+                  title="Exportar capa" *ngIf="layer.format !== 'tiff' && layer.format !== 'geotiff' && layer.format !== 'tif'">
+                  📥
+                </button>
+              </div>
+            </div>
+            <!-- Panel de opciones (si está abierto) -->
+            <div class="layer-options" *ngIf="selectedLayerForEdit?.id === layer.id && showLayerSymbologyPanel">
+              <div class="option-group">
+                <label>Color de línea:</label>
+                <input type="color" [value]="(layerSymbology.get(layer.id) || {color: layer.color}).color || '#FF671C'" 
+                  (change)="updateLayerSymbologyProperty(layer, 'color', $any($event.target).value)">
+              </div>
+              <div class="option-group">
+                <label>Grosor línea:</label>
+                <input type="range" min="1" max="10" [value]="(layerSymbology.get(layer.id) || {strokeWidth: 2}).strokeWidth || 2" 
+                  (input)="updateLayerSymbologyProperty(layer, 'strokeWidth', $any($event.target).value)">
+              </div>
+              <div class="option-group">
+                <label>Estilo:</label>
+                <select [value]="(layerSymbology.get(layer.id) || {strokeStyle: 'solid'}).strokeStyle || 'solid'" 
+                  (change)="updateLayerSymbologyProperty(layer, 'strokeStyle', $any($event.target).value)">
+                  <option value="solid">Sólido</option>
+                  <option value="dashed">Punteado</option>
+                  <option value="dotted">Puntos</option>
+                </select>
+              </div>
+              <div class="option-group">
+                <label>Opacidad:</label>
+                <input type="range" min="0" max="1" step="0.1" [value]="(layerSymbology.get(layer.id) || {opacity: 1}).opacity || 1" 
+                  (input)="updateLayerSymbologyProperty(layer, 'opacity', $any($event.target).value)">
+              </div>
+              <button class="btn-primary mini" (click)="updateLayerSymbology(layer)">Aplicar</button>
             </div>
           </div>
         </div>

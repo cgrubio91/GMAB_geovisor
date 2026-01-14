@@ -27,6 +27,7 @@ import Geometry from 'ol/geom/Geometry';
 import XYZ from 'ol/source/XYZ';
 import GeoTIFF from 'ol/source/GeoTIFF';
 import WebGLTileLayer from 'ol/layer/WebGLTile';
+import Text from 'ol/style/Text';
 
 import { Chart, registerables } from 'chart.js';
 import * as JSZip from 'jszip';
@@ -95,6 +96,12 @@ export class GeovisorComponent implements OnInit, AfterViewInit, OnDestroy {
     private savedMeasurementsSource = new VectorSource();
     private savedMeasurementsLayer?: VectorLayer;
     private basemapLayer?: TileLayer<any>;
+
+    // Nuevas propiedades para las características
+    layerSymbology: Map<number, any> = new Map(); // Símbología personalizable por capa
+    editingEnabled: boolean = false; // Control de edición de geometrías
+    showLayerSymbologyPanel: boolean = false; // Panel de símbología
+    selectedLayerForEdit: any = null; // Capa seleccionada para editar
 
     currentBasemap: string = 'osm';
     basemaps = [
@@ -862,6 +869,390 @@ export class GeovisorComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             if (allDS.length > 0) this.cesiumViewer.zoomTo(allDS as any);
         }
+    }
+
+    // ==================== NUEVAS CARACTERÍSTICAS ====================
+
+    /**
+     * 1. SÍMBOLOGÍA PERSONALIZABLE (Color, estilo, ancho de línea)
+     */
+    openLayerSymbologyPanel(layer: any) {
+        this.selectedLayerForEdit = layer;
+        this.showLayerSymbologyPanel = true;
+        
+        // Inicializar símbología si no existe
+        if (!this.layerSymbology.has(layer.id)) {
+            this.layerSymbology.set(layer.id, {
+                color: layer.color || '#FF671C',
+                fillColor: 'rgba(255, 103, 28, 0.3)',
+                strokeWidth: 2,
+                strokeStyle: 'solid', // solid, dashed, dotted
+                opacity: layer.opacity || 1
+            });
+        }
+    }
+
+    /**
+     * Actualizar propiedad específica de símbología
+     */
+    updateLayerSymbologyProperty(layer: any, property: string, value: any) {
+        if (!this.layerSymbology.has(layer.id)) {
+            this.layerSymbology.set(layer.id, {});
+        }
+        const symb = this.layerSymbology.get(layer.id);
+        if (symb) {
+            symb[property] = value;
+        }
+    }
+
+    updateLayerSymbology(layer: any) {
+        if (!this.olMap || !layer) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!olLayer) return;
+
+        const symbology = this.layerSymbology.get(layer.id);
+        if (!symbology) return;
+
+        // Actualizar estilo de la capa vectorial
+        if (olLayer instanceof VectorLayer) {
+            const source = olLayer.getSource();
+            if (source instanceof VectorSource) {
+                source.getFeatures().forEach((feature: Feature<Geometry>) => {
+                    const geom = feature.getGeometry();
+                    if (!geom) return;
+
+                    let style: Style | Style[] = new Style({
+                        stroke: new Stroke({
+                            color: symbology.color,
+                            width: symbology.strokeWidth,
+                            lineDash: symbology.strokeStyle === 'dashed' ? [10, 10] : 
+                                     symbology.strokeStyle === 'dotted' ? [2, 5] : undefined
+                        }),
+                        fill: new Fill({
+                            color: symbology.fillColor
+                        }),
+                        image: new CircleStyle({
+                            radius: symbology.strokeWidth + 2,
+                            fill: new Fill({ color: symbology.color })
+                        })
+                    });
+
+                    feature.setStyle(style);
+                });
+
+                olLayer.setOpacity(symbology.opacity);
+            }
+        }
+
+        // Actualizar en Cesium si es necesario
+        if (this.cesiumViewer) {
+            const cesiumDS = this.cesiumDataSources.get(layer.id);
+            if (cesiumDS && 'entities' in cesiumDS) {
+                (cesiumDS as Cesium.GeoJsonDataSource).entities.values.forEach((entity: any) => {
+                    if (entity.polygon) {
+                        entity.polygon.outline = true;
+                        entity.polygon.outlineColor = Cesium.Color.fromCssColorString(symbology.color);
+                    }
+                    if (entity.polyline) {
+                        entity.polyline.material = Cesium.Color.fromCssColorString(symbology.color);
+                        entity.polyline.width = symbology.strokeWidth;
+                    }
+                });
+            }
+        }
+
+        this.showLayerSymbologyPanel = false;
+    }
+
+    /**
+     * 2. ETIQUETADO AUTOMÁTICO DE FEATURES
+     */
+    toggleLayerLabeling(layer: any) {
+        if (!this.olMap || !layer) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!(olLayer instanceof VectorLayer)) return;
+
+        const source = olLayer.getSource();
+        if (!(source instanceof VectorSource)) return;
+
+        // Habilitar/deshabilitar etiquetas
+        const showLabels = !layer.showLabels;
+        layer.showLabels = showLabels;
+
+        source.getFeatures().forEach((feature: Feature<Geometry>, index: number) => {
+            const props = feature.getProperties();
+            const label = props['name'] || props['Name'] || `Feature ${index + 1}`;
+
+            let currentStyle = feature.getStyle() as Style;
+            if (!currentStyle) {
+                currentStyle = new Style();
+            } else if (Array.isArray(currentStyle)) {
+                currentStyle = currentStyle[0];
+            }
+
+            if (showLabels) {
+                // Crear nuevo estilo con etiqueta
+                const newStyle = new Style({
+                    text: new Text({
+                        text: label.substring(0, 20), // Limitar a 20 caracteres
+                        fill: new Fill({ color: '#000' }),
+                        stroke: new Stroke({ color: '#fff', width: 3 }),
+                        font: 'bold 12px Arial',
+                        offsetY: -15
+                    }),
+                    stroke: currentStyle.getStroke?.() || undefined,
+                    fill: currentStyle.getFill?.() || undefined,
+                    image: currentStyle.getImage?.() || undefined
+                });
+                feature.setStyle(newStyle);
+            } else {
+                // Remover etiqueta, mantener estilo original
+                const styleWithoutLabel = new Style({
+                    stroke: currentStyle.getStroke?.() || undefined,
+                    fill: currentStyle.getFill?.() || undefined,
+                    image: currentStyle.getImage?.() || undefined
+                });
+                feature.setStyle(styleWithoutLabel);
+            }
+        });
+    }
+
+    /**
+     * 3. EDICIÓN DE GEOMETRÍAS
+     */
+    toggleEditingMode(layer: any) {
+        if (!this.olMap || !layer) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!(olLayer instanceof VectorLayer)) {
+            alert('Solo se pueden editar capas vectoriales (GeoJSON, KML)');
+            return;
+        }
+
+        this.editingEnabled = !this.editingEnabled;
+        this.selectedLayerForEdit = this.editingEnabled ? layer : null;
+
+        if (this.editingEnabled) {
+            // Importar módulo de edición
+            import('ol/interaction/Modify').then(({ default: Modify }) => {
+                const modify = new Modify({ source: olLayer.getSource() });
+                this.olMap?.addInteraction(modify);
+
+                // Usar para rastrear interacciones de edición
+                modify.on('modifyend', (evt) => {
+                    console.log('Geometry modified:', evt.features.getArray());
+                    // Aquí se podría guardar cambios a la BD
+                });
+            });
+
+            alert(`✏️ Modo edición activado para: ${layer.name}\nHaz clic y arrastra para editar.`);
+        }
+    }
+
+    /**
+     * 4. EXPORTAR CAPAS (GeoJSON, Shapefile)
+     */
+    exportLayer(layer: any, format: 'geojson' | 'kml') {
+        if (!this.olMap || !layer) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!(olLayer instanceof VectorLayer)) {
+            alert('Solo se pueden exportar capas vectoriales');
+            return;
+        }
+
+        const source = olLayer.getSource();
+        if (!(source instanceof VectorSource)) return;
+
+        const features = source.getFeatures();
+        if (features.length === 0) {
+            alert('No hay geometrías para exportar');
+            return;
+        }
+
+        let fileContent: string;
+        let filename: string;
+        let mimeType: string;
+
+        if (format === 'geojson') {
+            const geojson = new GeoJSON();
+            const featureCollection = {
+                type: 'FeatureCollection',
+                features: features.map((f: Feature<Geometry>) => {
+                    const geomTransformed = f.getGeometry()?.clone().transform('EPSG:3857', 'EPSG:4326');
+                    return {
+                        type: 'Feature',
+                        geometry: JSON.parse(geojson.writeGeometry(geomTransformed!)),
+                        properties: f.getProperties()
+                    };
+                })
+            };
+            fileContent = JSON.stringify(featureCollection, null, 2);
+            filename = `${layer.name}_${new Date().getTime()}.geojson`;
+            mimeType = 'application/geo+json';
+        } else {
+            // KML
+            const kml = new (require('ol/format/KML')).default();
+            fileContent = kml.writeFeatures(features, {
+                dataProjection: 'EPSG:4326',
+                featureProjection: 'EPSG:3857'
+            });
+            filename = `${layer.name}_${new Date().getTime()}.kml`;
+            mimeType = 'application/vnd.google-earth.kml+xml';
+        }
+
+        // Descargar archivo
+        const blob = new Blob([fileContent], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        alert(`✅ Capa exportada como ${format.toUpperCase()}`);
+    }
+
+    /**
+     * 5. BÚSQUEDA Y FILTRADO DE FEATURES
+     */
+    searchFeatures(layer: any, searchTerm: string) {
+        if (!this.olMap || !layer || !searchTerm) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!(olLayer instanceof VectorLayer)) return;
+
+        const source = olLayer.getSource();
+        if (!(source instanceof VectorSource)) return;
+
+        const allFeatures = source.getFeatures();
+        const searchLower = searchTerm.toLowerCase();
+
+        // Filtrar features que coincidan con el término de búsqueda
+        const matchedFeatures = allFeatures.filter((f: Feature<Geometry>) => {
+            const props = f.getProperties();
+            return Object.values(props).some(v =>
+                String(v).toLowerCase().includes(searchLower)
+            );
+        });
+
+        if (matchedFeatures.length === 0) {
+            alert(`No se encontraron features con: "${searchTerm}"`);
+            return;
+        }
+
+        // Zoom a la primera feature encontrada
+        const firstFeature = matchedFeatures[0];
+        const geom = firstFeature.getGeometry();
+        if (geom) {
+            this.olMap.getView().fit(geom.getExtent(), { duration: 1000, padding: [100, 100, 100, 100] });
+        }
+
+        // Resaltar features encontrados
+        matchedFeatures.forEach((f: Feature<Geometry>) => {
+            const currentStyle = f.getStyle() as Style;
+            const highlightStyle = new Style({
+                stroke: new Stroke({ color: '#FFD700', width: 3 }),
+                fill: currentStyle?.getFill?.() || new Fill({ color: 'rgba(255, 215, 0, 0.5)' }),
+                image: new CircleStyle({
+                    radius: 8,
+                    fill: new Fill({ color: '#FFD700' })
+                })
+            });
+            f.setStyle(highlightStyle);
+        });
+
+        alert(`Se encontraron ${matchedFeatures.length} features. Presione ESC para limpiar la búsqueda.`);
+    }
+
+    clearSearch(layer: any) {
+        if (!this.olMap || !layer) return;
+
+        const olLayer: any = this.olMap.getLayers().getArray().find((l: any) => l.get('id') === layer.id);
+        if (!(olLayer instanceof VectorLayer)) return;
+
+        const source = olLayer.getSource();
+        if (!(source instanceof VectorSource)) return;
+
+        // Resetear estilos a los originales
+        source.getFeatures().forEach((f: Feature<Geometry>) => {
+            f.setStyle(undefined);
+        });
+    }
+
+    /**
+     * Abrir panel de búsqueda (placeholder para UI futura)
+     */
+    openSearchPanel(layer: any) {
+        const searchTerm = prompt('Ingrese término de búsqueda:', '');
+        if (searchTerm) {
+            this.searchFeatures(layer, searchTerm);
+        }
+    }
+
+    /**
+     * Mostrar menú de contexto para exportar
+     */
+    showExportMenu(event: MouseEvent, layer: any) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Crear un menú simple (podría mejorarse con un componente dedicado)
+        const menu = document.createElement('div');
+        menu.style.cssText = `
+            position: fixed;
+            top: ${event.clientY}px;
+            left: ${event.clientX}px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10000;
+            padding: 4px 0;
+        `;
+
+        const geoJsonBtn = document.createElement('button');
+        geoJsonBtn.textContent = '📄 GeoJSON';
+        geoJsonBtn.style.cssText = `
+            display: block;
+            width: 100%;
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        `;
+        geoJsonBtn.onclick = () => {
+            this.exportLayer(layer, 'geojson');
+            menu.remove();
+        };
+        geoJsonBtn.onmouseover = () => geoJsonBtn.style.background = '#f0f0f0';
+        geoJsonBtn.onmouseout = () => geoJsonBtn.style.background = 'none';
+
+        const kmlBtn = document.createElement('button');
+        kmlBtn.textContent = '🗺️ KML';
+        kmlBtn.style.cssText = geoJsonBtn.style.cssText;
+        kmlBtn.onclick = () => {
+            this.exportLayer(layer, 'kml');
+            menu.remove();
+        };
+        kmlBtn.onmouseover = () => kmlBtn.style.background = '#f0f0f0';
+        kmlBtn.onmouseout = () => kmlBtn.style.background = 'none';
+
+        menu.appendChild(geoJsonBtn);
+        menu.appendChild(kmlBtn);
+        document.body.appendChild(menu);
+
+        // Remover menú al hacer clic en otro lado
+        const closeMenu = () => {
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+        };
+        setTimeout(() => document.addEventListener('click', closeMenu), 0);
     }
 
     goBack() { this.router.navigate(['/dashboard']); }
